@@ -1,5 +1,5 @@
 
-# Loading packages
+# Loading required packages
 library(dplyr)
 library(tidyr)
 library(stringr)
