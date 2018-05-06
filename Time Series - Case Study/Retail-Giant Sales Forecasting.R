@@ -909,10 +909,10 @@ Global_Superstore_Consumer_APAC$Quantity_agg %>% arima(order=c(2,1,0)) %>% predi
 #Frequency = 1 
 #[1] 842.6532 837.2847 837.8234 838.6757 838.1635 838.2291
 
-############################################# CONCLUSION ##########################################################
+############################################# CONCLUSION ###########################################################
 #  The two most profitable buckets out of 21 are EU, Consumer and APAC, Consumer segment. 
 #  The MAPE values of  all the predictions are low. 
 #  The multiplicative model has been followed for modeling out the globally predictable part for both the segments 
 #  The ACF,PACF plots for all the segments shows that the locally predictable part is itself 
 #   weakly stationary and residuals for all the segments came out to be pure white noise. 
-################################################## END ############################################################
+################################################## END #############################################################
