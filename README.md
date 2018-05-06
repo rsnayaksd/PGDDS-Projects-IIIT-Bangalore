@@ -1,4 +1,7 @@
-# PG Diploma in Data Science from IIIT-Bangalore
+# PGDDS Projects IIIT Bangalore
+
+PG Diploma in Data Science from IIIT-Bangalore
+==============================================
 
 The 11-month online PG Diploma program, co-developed by IIIT Bangalore &amp; Upgrad, covers the depth and breadth of the subject in the form of interactive lectures, live sessions, assignments and real-time case studies, and a 3-month capstone project mentored by industry professionals.
 
