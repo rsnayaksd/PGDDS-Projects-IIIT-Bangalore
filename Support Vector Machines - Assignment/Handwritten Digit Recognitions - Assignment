@@ -274,3 +274,4 @@ confusionMatrix(Eval_final_model_test,test_Data$number)
 
 # There is very less difference between train and test accuracy. So, we can say that over-fitting 
 # is not the case, our model is able to predict correct digits using Non-Linear SVM to a large extent.
+
