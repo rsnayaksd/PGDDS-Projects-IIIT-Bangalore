@@ -1,0 +1,463 @@
+-- HIVE ASSIGNMENT SUBMISSION
+-- Roll Number: DDA1720008
+
+-- Creating the table with the correct schema in the appropriate format to store the data.
+
+drop table nyc_yellow_taxi_data;
+
+create external table if not exists nyc_yellow_taxi_data (
+VendorID int,
+tpep_pickup_datetime timestamp,
+tpep_dropoff_datetime timestamp,
+passenger_count int,
+trip_distance double,
+RatecodeID double,
+store_and_fwd_flag char(1),
+PULocationID int,
+DOLocationID int,
+payment_type int,
+fare_amount double,
+extra double,
+mta_tax double,
+tip_amount double,
+tolls_amount double,
+improvement_surcharge double,
+total_amount double
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+location 's3://big-data-analytics-01/NYC'
+TBLPROPERTIES ("skip.header.line.count"="2");
+
+-- Checking the trip data
+select * from nyc_yellow_taxi_data limit 5;
+
+
+--================================
+-- Basic Data Quality Checks
+--================================
+
+-- 1. How many records has each TPEP provider provided? 
+-- Write a query that summarises the number of records of each provider.
+
+select nyc_yellow_taxi_data.vendorid,count(*) from nyc_yellow_taxi_data
+group by nyc_yellow_taxi_data.vendorid
+order by group by nyc_yellow_taxi_data.vendorid;
+
+-- Ans.
+-- 1	8447149
+-- 2	10345930
+
+-- 2. The data provided is for months November and December only. 
+-- Check whether the data is consistent, and if not, identify the data quality issues. 
+-- Mention all data quality issues in comments.
+
+-- Checking the tpep_pickup_datetime values
+select distinct nyc_yellow_taxi_data.tpep_pickup_datetime from nyc_yellow_taxi_data limit 5;
+
+-- We see that the data provided have other data than November 2017 and December 2017. 
+
+-- Below query is to verify the Condition to restrict the data analysis to be performed only on Nov 2017, Dec 2017 data
+
+select distinct nyc_yellow_taxi_data.tpep_pickup_datetime from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') limit 5;
+
+SELECT * from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') limit 5;
+
+--================================
+-- Performing Data Quality Checks
+--================================
+
+-- To validate vendorid column
+-- vendorid is a code indicating the TPEP provider that provided the record.
+-- 1= Creative Mobile Technologies, LLC; 2= VeriFone Inc.
+
+select count(*) from nyc_yellow_taxi_data where vendorid not in (1,2);
+
+-- Result: 0
+-- no issues found with vendorid  
+
+-- To validate tpep_pickup_datetime column  
+
+select count(*) from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+NOT IN ('11-2017','12-2017');
+
+-- Result: 315
+-- There are 315 data records where tpep_pickup_datetime does not belong to Nov 2017 or Dec 2017
+
+-- To validate tpep_dropoff_datetime column  
+
+select count(*) from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_dropoff_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_dropoff_datetime)) 
+NOT IN ('11-2017','12-2017');
+
+-- Result: 1907
+-- There are 1907 data records where tpep_dropoff_datetime does not belong to Nov 2017 or Dec 2017
+
+-- To validate passenger_count column
+-- passenger_count is the number of passengers in the vehicle.
+-- This is a driver-entered value.
+
+select count(*) from nyc_yellow_taxi_data where passenger_count < 0; -- Result: 0
+select count(*) from nyc_yellow_taxi_data where passenger_count = 0; -- Result: 108970
+
+-- There are 108970 trip details with zero as number of passengers.
+-- Also Passenger count 192 is not corrent data.
+
+-- To validate trip_distance column
+-- trip_distance is the elapsed trip distance in miles reported by the taximeter. 
+
+select count(*) from nyc_yellow_taxi_data where trip_distance < 0; -- Result: 0
+select count(*) from nyc_yellow_taxi_data where trip_distance = 0; -- Result: 120017
+
+-- There are 120017 trip details with trip_distance value is zero
+
+-- To validate ratecodeid column
+-- ratecodeid is the final rate code in effect at the end of the trip.
+-- 1=Standard rate
+-- 2=JFK
+-- 3=Newark
+-- 4=Nassau or Westchester
+-- 5=Negotiated fare
+-- 6=Group ride
+
+select count(*) from nyc_yellow_taxi_data where ratecodeid not in (1,2,3,4,5,6); -- Result: 178
+
+-- There are 178 trip details with wrong ratecodeid provided by vendor
+
+-- To validate store_and_fwd_flag column
+-- store_and_fwd_flag : This flag indicates whether the trip record was held in vehicle
+-- memory before sending to the vendor, aka â€œstore and forward,â€ because the vehicle did not 
+-- have a connection to the server.
+-- Y= store and forward trip
+-- N= not a store and forward trip
+
+select distinct store_and_fwd_flag from nyc_yellow_taxi_data; -- Result: N, Y
+select count(*) from nyc_yellow_taxi_data where store_and_fwd_flag not in ('N','Y'); -- Result: 0
+
+-- There is no data quality issue with store_and_fwd_flag.
+
+-- To validate pulocationid, dolocationid columns
+-- Longitude where the meter was disengaged.
+-- Latitude where the meter was disengaged.
+
+select count(*) from nyc_yellow_taxi_data where pulocationid IS NULL; -- Result: 0
+select count(*) from nyc_yellow_taxi_data where dolocationid IS NULL; -- Result: 0
+
+-- There is no data quality issue with pulocationid, dolocationid.
+
+-- To validate payment_type column
+-- payment_type is a numeric code signifying how the passenger paid for the trip.
+-- 1= Credit card
+-- 2= Cash
+-- 3= No charge
+-- 4= Dispute
+-- 5= Unknown
+-- 6= Voided trip
+
+select count(*) from nyc_yellow_taxi_data where payment_type NOT IN (1,2,3,4,5,6); -- Result: 0
+
+-- There is no data quality issue with payment_type column.
+
+-- To validate fare_amount column
+-- The time-and-distance fare calculated by the meter.
+
+select count(*) from nyc_yellow_taxi_data where fare_amount < 0; -- Result: 9372
+select count(*) from nyc_yellow_taxi_data where fare_amount = 0; -- Result: 5180
+
+-- There are 14552 trip details with wrong fare_amount values.
+
+-- To validate extra column
+-- Miscellaneous extras and surcharges. 
+-- Currently, this only includes the $0.50 and $1 rush hour and overnight charges.
+
+select distinct extra from nyc_yellow_taxi_data; 
+select count(*) from nyc_yellow_taxi_data where extra < 0; -- Result: 4835
+
+-- There are 4835 trip data with negative extra -column values.
+
+-- To validate mta_tax column
+-- $0.50 MTA tax that is automatically triggered based on the metered rate in use.
+
+select distinct mta_tax from nyc_yellow_taxi_data; 
+select count(*) from nyc_yellow_taxi_data where mta_tax < 0; -- Result: 9092
+
+-- There are 9092 trip data provided by vendor with negative value for mta_tax amount.
+
+-- To validate tip_amount column
+-- This field is automatically populated for credit card tips. Cash tips are not included.
+
+select distinct tip_amount from nyc_yellow_taxi_data; 
+select count(*) from nyc_yellow_taxi_data where tip_amount < 0; -- Result: 97
+
+-- There are 97 trip data provided by vendor with negative value for tip_amount.
+
+-- To validate tolls_amount column
+-- tolls_amount is the total amount of all tolls paid in trip.
+
+select distinct tolls_amount from nyc_yellow_taxi_data; 
+select count(*) from nyc_yellow_taxi_data where tolls_amount < 0; -- Result: 41
+
+-- There are 41 trip data provided by vendor with negative value for tolls_amount.
+
+-- To validate improvement_surcharge column
+-- $0.30 improvement surcharge assessed trips at the flag drop. 
+-- The improvement surcharge began being levied in 2015..
+
+select count(*) from nyc_yellow_taxi_data where improvement_surcharge < 0; -- Result: 9367
+
+-- There are 9367 trip data provided by vendor with negative value for improvement_surcharge.
+
+-- To validate total_amount column
+-- The total amount charged to passengers. Does not include cash tips.
+
+select count(*) from nyc_yellow_taxi_data where total_amount < 0; -- Result: 9372
+
+-- There are 9372 trip data provided by vendor with negative value for total_amount.
+
+
+
+-- 3. You might have encountered unusual or erroneous rows in the dataset. 
+-- Can you conclude which vendor is doing a bad job in providing the records?
+
+SELECT  nyc_yellow_taxi_data.vendorid, count(*)
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+NOT IN ('11-2017','12-2017') OR passenger_count <= 0 
+OR trip_distance <= 0 OR ratecodeid not in (1,2,3,4,5,6)
+OR  fare_amount <= 0 OR extra < 0 OR mta_tax < 0 OR tip_amount < 0 
+OR tolls_amount < 0 OR improvement_surcharge < 0 OR total_amount < 0
+GROUP BY nyc_yellow_taxi_data.vendorid;
+ 
+-- For Vendor 1 we encountered 178489 unusual or erroneous rows in the dataset.
+-- For Vendor 2 we encountered 59414 unusual or erroneous rows in the dataset. 
+-- So, Vendor1 is doing a bad job over Vendor2 by providing the records.
+
+
+--=======================================================================================
+-- NOTE: In this assignment, 
+-- we ONLY consider the data of yellow taxis for November and December of the year 2017.
+--=======================================================================================
+
+--=============
+-- Analysis-I
+--=============
+
+-- 1. Compare the average fare for November and December.
+
+select MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime), avg(fare_amount)
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') AND fare_amount > 0
+GROUP BY MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime); 
+
+-- Result:
+-- November 2017 Average Fare: 13.155032472319599 
+-- December 2017 Average Fare: 12.950125139150984
+
+-- Conclusion: December average fare is less than November average fare.
+
+
+
+-- 2. Explore the â€˜number of passengers per tripâ€™ 
+
+-- 2.1 How many trips are made by each level of â€˜Passenger_countâ€™? 
+
+select passenger_count, count(*)  
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') AND passenger_count > 0 AND passenger_count <> 192  
+GROUP BY passenger_count
+ORDER BY passenger_count;
+
+-- Result:
+--=========
+-- Level_of_â€˜Passenger_countâ€™   No._of_Trips 
+--          1                   13251047
+--          2                   2816117	
+--          3                   810767
+--          4                   398846
+--          5                   875823
+--          6                   531002
+--          7                   75
+--          8                   60
+--          9                   56 
+--          192                 1
+
+-- 2.2 Do most people travel solo or with other people?
+
+-- From the above result we can conclude that the most people travel solo. 
+
+
+
+-- 3. Which is the most preferred mode of payment?
+
+select payment_type, count(*)  
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') 
+GROUP BY payment_type
+ORDER BY payment_type desc;
+
+-- Result:
+-- Payment_Type     Count
+--      4           27529
+--      3           100530
+--      2           6026188
+--      1           12638517
+
+-- So, The most preferred mode of payment is Credit card
+
+
+
+-- 4. What is the average tip paid? Compare the average tip with the 25th, 50th and 75th percentiles and comment whether the â€˜average tipâ€™ is a representative statistic (of the central tendency) of â€˜tip amount paidâ€™.
+
+select avg(tip_amount) AS Average_Tip_Paid, 
+    percentile_approx(tip_amount,0.25) AS 25th_Percentile, 
+    percentile_approx(tip_amount,0.50) AS 50th_Percentile, 
+    percentile_approx(tip_amount,0.75) AS 75th_Percentile 
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') AND tip_amount > 0;
+
+-- Average Tip Paid: 2.8738558848762845
+-- 25th Percentile: 1.45 
+-- 50th Percentile: 2.0431206496519723
+-- 75th Percentile: 3.16
+
+-- Conclusion: The â€˜average tipâ€™ is a representative statistic (of the central tendency) of â€˜tip amount paidâ€™
+
+
+
+-- 5. Explore the â€˜Extraâ€™ (charge) variable - what is the fraction of total trips where an extra charge is levied?
+
+select COUNT(*)
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') and extra>0;
+
+-- Result: 8678323
+
+select COUNT(*)
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017');
+
+-- Result: 18792764
+
+-- No trips with etra charge/ tno trips = 8678323/ 18792764 = 0.46179
+
+
+
+--=============
+-- Analysis-II
+--=============
+
+-- 1. What is the correlation between the number of passengers and tip paid? Do multiple travellers pay more compared to solo travellers?
+
+select corr(passenger_count, tip_amount) 
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') AND passenger_count > 0 
+and passenger_count <> 192 AND tip_amount >=0 ;
+
+
+
+-- 2. Create five buckets of â€˜tip paidâ€™: [0-5), [5-10), [10-15) , [15-20) and >=20. Calculate the percentage share of each bucket (i.e. the fraction of trips falling in each bucket).
+
+select count(*) 
+from nyc_yellow_taxi_data 
+where CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017');
+
+-- Result: 18792764
+
+select CASE 
+		WHEN tip_amount >= 0
+			AND tip_amount < 5
+			THEN 'tip_paid_0_5_bucket'
+		WHEN tip_amount >= 5
+			AND tip_amount < 10
+			THEN 'tip_paid_5_10_bucket'
+		WHEN tip_amount >= 10
+			AND tip_amount < 15
+			THEN 'tip_paid_10_15_bucket'
+		WHEN tip_amount >= 15
+			AND tip_amount < 20
+			THEN 'tip_paid_15_20_bucket'
+		WHEN tip_amount >= 20
+			THEN 'tip_paid_20_and_more'
+		ELSE 'NA'
+		END AS tip_bucket,
+	count(*) AS Total_Count,
+	count(*) * 100 / 18792764 AS Percentage_Share
+FROM nyc_yellow_taxi_data
+WHERE CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017') 
+GROUP BY CASE 
+		WHEN tip_amount >= 0
+			AND tip_amount < 5
+			THEN 'tip_paid_0_5_bucket'
+		WHEN tip_amount >= 5
+			AND tip_amount < 10
+			THEN 'tip_paid_5_10_bucket'
+		WHEN tip_amount >= 10
+			AND tip_amount < 15
+			THEN 'tip_paid_10_15_bucket'
+		WHEN tip_amount >= 15
+			AND tip_amount < 20
+			THEN 'tip_paid_15_20_bucket'
+		WHEN tip_amount >= 20
+			THEN 'tip_paid_20_and_more'
+		ELSE 'NA'
+		END;
+
+-- tip_bucket               total_count percentage_share
+--	tip_paid_5_10_bucket	1058563	    5.632822292665411
+--	tip_paid_0_5_bucket	    17315854	92.14107089303096
+--	tip_paid_20_and_more	19676	    0.10469987278082138 
+--	tip_paid_10_15_bucket	353445	    1.8807504846014136
+--	tip_paid_15_20_bucket	45129	    0.24014030080939663
+
+-- 3. Which month has a greater average â€˜speedâ€™ - November or December? Note that the variable â€˜speedâ€™ will have to be derived from other metrics.
+
+SELECT month(tpep_pickup_datetime) AS month,
+	avg(trip_distance / ((unix_timestamp(tpep_dropoff_datetime) - unix_timestamp(tpep_pickup_datetime)) / 3600)) AS avg_speed_miles_per_hour
+FROM nyc_yellow_taxi_data
+WHERE CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017')
+GROUP BY month(tpep_pickup_datetime);
+
+-- Result:
+-- November 2017 Average Speed:	12.758466512773937 --> has greater speed
+-- December 2017 Average Speed:	12.705195837479113
+
+-- 4. Analyse the average speed of the most happening days of the year i.e. 31st December (New yearâ€™s eve) and 25th December (Christmas Eve) and compare it with the overall average. 
+
+select day(tpep_pickup_datetime) day, 
+    month(tpep_pickup_datetime) month, 
+    avg(trip_distance/((unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))/3600)) as avg_speed_miles_per_hour 
+from nyc_yellow_taxi_data
+where day(tpep_pickup_datetime) in (25,31) and 
+CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017')
+group by day(tpep_pickup_datetime), month(tpep_pickup_datetime);
+
+-- Result:
+-- day	month	avg_speed_miles_per_hour
+-- 25	12	    16.766895965627906
+-- 31	12	    14.036533963810392
+-- 25	11	    14.672565516326628
+
+select avg(trip_distance/((unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))/3600)) avg_speed_miles_per_hour
+from nyc_yellow_taxi_data 
+WHERE CONCAT(MONTH(nyc_yellow_taxi_data.tpep_pickup_datetime),"-",YEAR(nyc_yellow_taxi_data.tpep_pickup_datetime)) 
+IN ('11-2017','12-2017');
+
+-- Result
+-- avg_speed_miles_per_hour: 12.731513987086629
+
+-- Conclusion: Average Speed of 25th December is the higest among all and over all average.
