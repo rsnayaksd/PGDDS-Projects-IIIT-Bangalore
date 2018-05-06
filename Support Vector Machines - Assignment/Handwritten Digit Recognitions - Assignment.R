@@ -224,7 +224,8 @@ print(fit.svm)
 # 784 predictor
 # 10 classes: '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' 
 #
-#No pre-processing
+
+       #No pre-processing
 #Resampling: Cross-Validated (3 fold) 
 #Summary of sample sizes: 2000, 2001, 1999 
 #Resampling results across tuning parameters:
