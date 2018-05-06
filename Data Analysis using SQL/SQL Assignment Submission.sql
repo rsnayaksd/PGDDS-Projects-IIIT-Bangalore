@@ -209,6 +209,7 @@ ORDER BY profits DESC;
 
 -- B. Display the product category, product sub-category and the profit within each sub-category in three columns. 
 
+
 # Query to retrieve the product category, product sub-category and the profit within each sub-category
 SELECT 
     pd.Product_Category 'product_category',
