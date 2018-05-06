@@ -1524,6 +1524,7 @@ model_29 <- lm(formula = price ~ enginelocation + carweight +
                  carbodywagon + companynamebmw + companynamebuick +   
                  companynameisuzu + companynamejaguar +  
                  companynamemitsubishi + companynametoyota, data = train)
+
   
 # Find the VIF of model_29
 sort(vif(model_29), decreasing = TRUE)
